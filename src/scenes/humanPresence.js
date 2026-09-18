@@ -1,4 +1,5 @@
 import * as DefaultCesium from 'cesium';
+import { evaluateCelestialVisibility } from './bortleScale.js';
 
 const HUMAN_EYE_HEIGHT_M = 1.7;
 const HUMAN_EYE_FOV_DEG = 58.0;
@@ -97,16 +98,50 @@ export function createHumanPresenceController(viewer, options = {}) {
     const speed = keys.sprint ? SPRINT_SPEED_MPS : WALK_SPEED_MPS;
     const distance = speed * dt;
 
-    if (keys.forward) camera.moveForward?.(distance);
-    if (keys.backward) camera.moveBackward?.(distance);
-    if (keys.left) camera.moveLeft?.(distance);
-    if (keys.right) camera.moveRight?.(distance);
+    // Use official Cesium vector geometry to move strictly tangent to the Earth's surface
+    if (camera.move && Cesium?.Cartesian3 && Cesium?.Ellipsoid?.WGS84) {
+      const posWC = camera.positionWC || camera.position;
+      const scratchUp = typeof Cesium.Cartesian3 === 'function' ? new Cesium.Cartesian3() : {};
+      const up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(posWC, scratchUp);
+      const right = camera.right || new Cesium.Cartesian3(1, 0, 0);
 
-    // Re-clamp camera height to terrain + 1.7m
+      // Forward direction tangent to Earth surface (perpendicular to right and up)
+      const forwardGround = Cesium.Cartesian3.cross(right, up, new Cesium.Cartesian3());
+      Cesium.Cartesian3.normalize(forwardGround, forwardGround);
+
+      // Right strafe direction tangent to Earth surface
+      const rightGround = Cesium.Cartesian3.cross(up, forwardGround, new Cesium.Cartesian3());
+      Cesium.Cartesian3.normalize(rightGround, rightGround);
+
+      const moveDir = new Cesium.Cartesian3(0, 0, 0);
+      if (keys.forward) Cesium.Cartesian3.add(moveDir, forwardGround, moveDir);
+      if (keys.backward) Cesium.Cartesian3.subtract(moveDir, forwardGround, moveDir);
+      if (keys.right) Cesium.Cartesian3.add(moveDir, rightGround, moveDir);
+      if (keys.left) Cesium.Cartesian3.subtract(moveDir, rightGround, moveDir);
+
+      if (Cesium.Cartesian3.magnitudeSquared(moveDir) > 0.0001) {
+        Cesium.Cartesian3.normalize(moveDir, moveDir);
+        camera.move(moveDir, distance);
+      }
+    } else {
+      // Fallback for mock/test environments
+      if (keys.forward) camera.moveForward?.(distance);
+      if (keys.backward) camera.moveBackward?.(distance);
+      if (keys.left) camera.moveLeft?.(distance);
+      if (keys.right) camera.moveRight?.(distance);
+    }
+
+    // Re-clamp camera height to 3D tiles or terrain + 1.7m
     const carto = camera.positionCartographic;
-    if (carto && Cesium.Cartesian3.fromRadians) {
+    if (carto && Cesium.Cartesian3?.fromRadians) {
       let groundH = currentGroundElevation;
-      if (scene.globe?.getHeight) {
+      if (scene.sampleHeight) {
+        const sampled = scene.sampleHeight(carto);
+        if (Number.isFinite(sampled)) {
+          groundH = Math.max(0, sampled);
+          currentGroundElevation = groundH;
+        }
+      } else if (scene.globe?.getHeight) {
         const h = scene.globe.getHeight(carto);
         if (Number.isFinite(h)) {
           groundH = Math.max(0, h);
@@ -184,9 +219,12 @@ export function createHumanPresenceController(viewer, options = {}) {
       sscc.enableTranslate = false;
     }
 
-    // Extinguish background stars when inside the urban boundary
+    // Evaluate Bortle scale & celestial visibility:
+    // In dark sky regions (Bortle 1-4, e.g. Big Bend, Death Valley), stars remain visible at night!
+    // In urban centers (Bortle 7-9, e.g. Austin), artificial skyglow extinguishes the stars.
     if (scene.skyBox) {
-      scene.skyBox.show = false;
+      const celestial = evaluateCelestialVisibility(viewer, { Cesium });
+      scene.skyBox.show = celestial.starsVisible;
     }
 
     return new Promise((resolve) => {
@@ -255,6 +293,10 @@ export function createHumanPresenceController(viewer, options = {}) {
           duration,
           complete: () => {
             savedCameraState = null;
+            if (scene.skyBox) {
+              const celestial = evaluateCelestialVisibility(viewer, { Cesium });
+              scene.skyBox.show = celestial.starsVisible;
+            }
             resolve();
           },
         });

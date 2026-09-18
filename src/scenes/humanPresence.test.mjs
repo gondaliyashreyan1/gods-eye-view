@@ -103,3 +103,48 @@ test('createHumanPresenceController transitions camera to 1.7m, enables walking,
   assert.equal(fakeScene.screenSpaceCameraController.enableRotate, true, 'Rotate re-enabled on exit');
   assert.equal(listeners.length, 0, 'Walk preRender listener removed on exit');
 });
+
+test('createHumanPresenceController preserves stars in Big Bend (Bortle 1) and hides stars in Austin', async () => {
+  const fakeCamera = {
+    position: { x: 100, y: 200, z: 300 },
+    positionCartographic: { longitude: -103.25, latitude: 29.25, height: 600 },
+    flyTo: (opts) => opts.complete?.(),
+  };
+
+  const fakeScene = {
+    camera: fakeCamera,
+    skyBox: { show: true },
+    screenSpaceCameraController: {},
+    preRender: { addEventListener: () => {}, removeEventListener: () => {} },
+  };
+
+  const fakeViewer = {
+    isDestroyed: () => false,
+    scene: fakeScene,
+    camera: fakeCamera,
+  };
+
+  const fakeCesium = {
+    Cartesian3: {
+      fromDegrees: (lon, lat, h) => ({ lon, lat, h }),
+      fromRadians: (lon, lat, h) => ({ lon, lat, h }),
+    },
+    Cartographic: { fromDegrees: (lon, lat) => ({ lon, lat }) },
+    Math: { toRadians: (d) => (d * Math.PI) / 180 },
+  };
+
+  const controller = createHumanPresenceController(fakeViewer, { Cesium: fakeCesium });
+
+  // 1. Drop into Big Bend at night (Bortle 1)
+  fakeCamera.positionCartographic.latitude = (29.25 * Math.PI) / 180;
+  fakeCamera.positionCartographic.longitude = (-103.25 * Math.PI) / 180;
+  await controller.dropIn(29.25, -103.25);
+  assert.equal(fakeScene.skyBox.show, true, 'Stars MUST remain visible in Big Bend Bortle 1!');
+
+  // 2. Drop into Austin at night (Bortle 8)
+  fakeCamera.positionCartographic.latitude = (30.2672 * Math.PI) / 180;
+  fakeCamera.positionCartographic.longitude = (-97.7431 * Math.PI) / 180;
+  await controller.dropIn(30.2672, -97.7431);
+  assert.equal(fakeScene.skyBox.show, false, 'Stars MUST be extinguished in Austin due to light pollution!');
+});
+

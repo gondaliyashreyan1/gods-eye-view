@@ -20,6 +20,7 @@ export function bindDisplayControls({ elements, actions }) {
     ['cleanViewButton', 'toggleCleanView'],
     ['cleanViewExitButton', 'exitCleanView'],
     ['dropInButton', 'toggleDropIn'],
+    ['darkSkyButton', 'toggleDarkSky'],
     ['celestialButton', 'toggleCelestial'],
     ['hudButton', 'toggleHud'],
     ['detectionButton', 'cycleDetection'],
@@ -42,6 +43,8 @@ export function bindDisplayControls({ elements, actions }) {
     listen(el, 'click', 'setModelsMode', (el) =>
       el.dataset.mode === 'all' ? 'all' : 'proximity',
     );
+  for (const el of elements.darkSkyModeButtons || [])
+    listen(el, 'click', 'setDarkSkyMode', (el) => el.dataset.bortle || 'auto');
   for (const el of elements.fadeSliders || []) listen(el, 'input', 'setFade');
   return {
     destroy() {

@@ -480,6 +480,8 @@ export class StyleManager extends ShellFacade {
         _cleanViewBtn: this._cleanViewBtn,
         _cleanViewExitBtn: this._cleanViewExitBtn,
         _dropInBtn: this._dropInBtn,
+        _darkSkyBtn: this._darkSkyBtn,
+        _darkSkyModeBtns: this._darkSkyModeBtns,
         _detectionDensitySlider: this._detectionDensitySlider,
         _detectionBtn: this._detectionBtn,
         _detectionFadeSlider: this._detectionFadeSlider,

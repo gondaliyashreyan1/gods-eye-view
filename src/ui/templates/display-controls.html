@@ -127,6 +127,20 @@
         <span class="pp-label">Drop In (G)</span>
       </button>
     </div>
+    <div class="pp-toggle-group">
+      <button class="pp-toggle-btn" id="darksky-toggle" title="Bortle Scale / Dark Sky Starlight Engine">
+        <span class="pp-icon material-symbols-outlined" aria-hidden="true">dark_mode</span>
+        <span class="pp-label" id="darksky-label">Dark Sky</span>
+      </button>
+      <div class="pp-slider-row visible" id="darksky-mode-row">
+        <span class="pp-slider-mini-label" id="darksky-status-badge">Auto</span>
+        <div class="pp-mode-seg" role="radiogroup" aria-label="Dark sky light pollution mode">
+          <button class="pp-mode-btn active" id="darksky-mode-auto" data-bortle="auto" role="radio" aria-checked="true" title="Auto: Detects urban light pollution vs dark sky reserves">Auto</button>
+          <button class="pp-mode-btn" id="darksky-mode-bortle1" data-bortle="bortle1" role="radio" aria-checked="false" title="Force Bortle 1 (Pristine Dark Sky)">Bortle 1</button>
+          <button class="pp-mode-btn" id="darksky-mode-bortle8" data-bortle="bortle8" role="radio" aria-checked="false" title="Force Bortle 8 (City Skyglow)">City</button>
+        </div>
+      </div>
+    </div>
     <button class="pp-toggle-btn" id="clean-view-toggle" title="Hide UI chrome">
       <span class="pp-icon">&#x25A1;</span>
       <span class="pp-label">Clean UI</span>

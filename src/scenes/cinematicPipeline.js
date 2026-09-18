@@ -1,4 +1,5 @@
 import * as DefaultCesium from 'cesium';
+import { evaluateCelestialVisibility } from './bortleScale.js';
 
 /**
  * Installs Cesium's official cinematic post-processing pipeline:
@@ -58,12 +59,11 @@ export function installCinematicPipeline(viewer, options = {}) {
     }
   }
 
-  // 5. Atmospheric and urban light pollution star extinction (< 10km)
+  // 5. Physically accurate Bortle scale & atmospheric star extinction
   function onPreRender() {
     if (!scene.skyBox) return;
-    const carto = scene.camera?.positionCartographic;
-    const altitude = carto ? carto.height : 100000;
-    scene.skyBox.show = altitude > 10000;
+    const celestial = evaluateCelestialVisibility(viewer, { Cesium, bortleOverride: options.bortleOverride });
+    scene.skyBox.show = celestial.starsVisible;
   }
   if (scene.preRender?.addEventListener) {
     scene.preRender.addEventListener(onPreRender);

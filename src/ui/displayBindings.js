@@ -4,6 +4,7 @@ import { bindApplicationShortcuts } from './visualInput.js';
 import { bindDisplayControls } from './displayControls.js';
 import { canonicalizeDensity } from '../data/detectionPolicy.js';
 import { createHumanPresenceController } from '../scenes/humanPresence.js';
+import { evaluateCelestialVisibility } from '../scenes/bortleScale.js';
 
 /** Own keyboard/display event subscriptions; settings remain with their state owners. */
 export class DisplayBindings {
@@ -110,6 +111,8 @@ export class DisplayBindings {
         cleanViewButton: this._cleanViewBtn,
         cleanViewExitButton: this._cleanViewExitBtn,
         dropInButton: this._dropInBtn,
+        darkSkyButton: this._darkSkyBtn,
+        darkSkyModeButtons: this._darkSkyModeBtns,
         densitySlider: this._detectionDensitySlider,
         detectionButton: this._detectionBtn,
         allocationButtons: this._detectionAllocationBtns,
@@ -120,6 +123,8 @@ export class DisplayBindings {
       },
       actions: {
         toggleDropIn: () => this._toggleDropIn(),
+        toggleDarkSky: () => this._toggleDarkSky(),
+        setDarkSkyMode: (mode) => this._setDarkSkyMode(mode),
         setStyle: (style) => this.setStyle(style),
         toggleBloom: () => {
           this.shareLinkManager?.claimRestoreLane?.('visual');
@@ -259,6 +264,29 @@ export class DisplayBindings {
     const lon = Cesium.Math.toDegrees(carto.longitude);
     const height = Number.isFinite(carto.height) ? carto.height : 0;
     this._humanPresence?.dropIn(lat, lon, { surfaceHeightM: height });
+  }
+  _toggleDarkSky() {
+    const next = this._darkSkyMode === 'bortle1' ? 'bortle8' : 'bortle1';
+    this._setDarkSkyMode(next);
+  }
+  _setDarkSkyMode(mode) {
+    this._darkSkyMode = mode;
+    for (const btn of this._darkSkyModeBtns || []) {
+      const active = (btn.dataset.bortle || 'auto') === mode;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-checked', String(active));
+    }
+    if (this.viewer?.scene?.skyBox) {
+      const celestial = evaluateCelestialVisibility(this.viewer, {
+        Cesium,
+        bortleOverride: mode,
+      });
+      this.viewer.scene.skyBox.show = celestial.starsVisible;
+      const badge = document.getElementById('darksky-status-badge');
+      if (badge) {
+        badge.textContent = celestial.starsVisible ? 'Stars: ON' : 'Stars: OFF';
+      }
+    }
   }
   destroy() {
     this._humanPresence?.exit();

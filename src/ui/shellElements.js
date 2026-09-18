@@ -42,6 +42,8 @@ export function readShellElements(document = globalThis.document) {
     _cleanViewBtn: document.getElementById('clean-view-toggle'),
     _cleanViewExitBtn: document.getElementById('clean-view-exit'),
     _dropInBtn: document.getElementById('drop-in-toggle'),
+    _darkSkyBtn: document.getElementById('darksky-toggle'),
+    _darkSkyModeBtns: document.querySelectorAll('#darksky-mode-row [data-bortle]'),
     _dataPanel: document.getElementById('data-panel'),
     _scenePanel: document.getElementById('scene-panel'),
     _cctvPanel: document.getElementById('cctv-panel'),
