@@ -19,6 +19,7 @@ export function bindDisplayControls({ elements, actions }) {
     ['scopeButton', 'toggleScope'],
     ['cleanViewButton', 'toggleCleanView'],
     ['cleanViewExitButton', 'exitCleanView'],
+    ['dropInButton', 'toggleDropIn'],
     ['celestialButton', 'toggleCelestial'],
     ['hudButton', 'toggleHud'],
     ['detectionButton', 'cycleDetection'],

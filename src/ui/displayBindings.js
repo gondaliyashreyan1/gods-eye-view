@@ -109,6 +109,7 @@ export class DisplayBindings {
         hudButton: this._hudBtn,
         cleanViewButton: this._cleanViewBtn,
         cleanViewExitButton: this._cleanViewExitBtn,
+        dropInButton: this._dropInBtn,
         densitySlider: this._detectionDensitySlider,
         detectionButton: this._detectionBtn,
         allocationButtons: this._detectionAllocationBtns,
@@ -118,6 +119,7 @@ export class DisplayBindings {
         modelModeButtons: this._models3dBtn ? this._models3dModeBtns : [],
       },
       actions: {
+        toggleDropIn: () => this._toggleDropIn(),
         setStyle: (style) => this.setStyle(style),
         toggleBloom: () => {
           this.shareLinkManager?.claimRestoreLane?.('visual');
@@ -208,7 +210,7 @@ export class DisplayBindings {
       },
     });
   }
-  _toggleDropIn(targetLat, targetLon) {
+  _toggleDropIn(targetLat, targetLon, targetHeight) {
     if (!this._humanPresence && this.viewer) {
       this._humanPresence = createHumanPresenceController(this.viewer);
     }
@@ -217,23 +219,46 @@ export class DisplayBindings {
       return;
     }
     if (Number.isFinite(targetLat) && Number.isFinite(targetLon)) {
-      this._humanPresence?.dropIn(targetLat, targetLon);
+      this._humanPresence?.dropIn(targetLat, targetLon, {
+        surfaceHeightM: targetHeight,
+      });
       return;
     }
     const canvas = this.viewer?.canvas;
-    if (!canvas || !this.viewer?.scene?.globe) return;
+    if (!canvas || !this.viewer?.scene) return;
     const center = new Cesium.Cartesian2(
       canvas.clientWidth / 2,
       canvas.clientHeight / 2,
     );
-    const ray = this.viewer.camera.getPickRay(center);
-    if (!ray) return;
-    const cartesian = this.viewer.scene.globe.pick(ray, this.viewer.scene);
+    let cartesian = null;
+    try {
+      if (typeof this.viewer.scene.pickPosition === 'function') {
+        cartesian = this.viewer.scene.pickPosition(center);
+      }
+    } catch {
+      // Pick position fallback
+    }
+    if (!cartesian && this.viewer.camera?.pickEllipsoid) {
+      cartesian = this.viewer.camera.pickEllipsoid(center);
+    }
+    if (!cartesian && this.viewer.camera?.position) {
+      const camCarto = Cesium.Cartographic.fromCartesian(
+        this.viewer.camera.position,
+      );
+      if (camCarto) {
+        this._humanPresence?.dropIn(
+          Cesium.Math.toDegrees(camCarto.latitude),
+          Cesium.Math.toDegrees(camCarto.longitude),
+        );
+      }
+      return;
+    }
     if (!cartesian) return;
     const carto = Cesium.Cartographic.fromCartesian(cartesian);
     const lat = Cesium.Math.toDegrees(carto.latitude);
     const lon = Cesium.Math.toDegrees(carto.longitude);
-    this._humanPresence?.dropIn(lat, lon);
+    const height = Number.isFinite(carto.height) ? carto.height : 0;
+    this._humanPresence?.dropIn(lat, lon, { surfaceHeightM: height });
   }
   destroy() {
     this._humanPresence?.exit();
