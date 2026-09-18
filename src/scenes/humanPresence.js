@@ -115,21 +115,26 @@ export function createHumanPresenceController(viewer, options = {}) {
     try {
       const data = await fetchNearestStreetView(lat, lon, options);
       if (!isDroppedIn) return;
-      if (data && (data.imageUrl || data.thumbnailUrl)) {
+      if (data && (data.imageUrl || data.thumbnailUrl || data.id)) {
         streetViewContainer.classList.remove('hidden');
         const imgUrl = data.thumbnailUrl || data.imageUrl;
         const year = data.capturedAt ? new Date(data.capturedAt).getFullYear() : '';
+        const isMapillary = data.source === 'Mapillary' && data.id;
         streetViewContainer.innerHTML = `
           <div class="streetview-hud-header">
             <div class="streetview-hud-title">
               <span class="streetview-live-dot"></span>
               <span class="streetview-source-badge">${data.source.toUpperCase()}</span>
-              <span class="streetview-heading-readout">${data.isPano ? '360°' : 'STREET'}</span>
+              <span class="streetview-heading-readout">${data.isPano || isMapillary ? '360°' : 'STREET'}</span>
             </div>
             <button class="streetview-close-btn" id="streetview-close-btn" title="Close street view">×</button>
           </div>
           <div class="streetview-img-container">
-            <img id="streetview-img" src="${imgUrl}" alt="Street View" crossorigin="anonymous" />
+            ${
+              isMapillary
+                ? `<iframe class="streetview-iframe" src="https://www.mapillary.com/embed?image_key=${data.id}&style=photo" allowfullscreen loading="lazy"></iframe>`
+                : `<img id="streetview-img" src="${imgUrl}" alt="Street View" />`
+            }
             <div class="streetview-overlay-meta">
               <span>${year ? 'Captured: ' + year : 'Live Street View'}</span>
               ${data.externalUrl ? `<a href="${data.externalUrl}" target="_blank" rel="noopener">Open ↗</a>` : ''}
