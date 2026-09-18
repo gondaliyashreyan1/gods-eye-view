@@ -9,14 +9,17 @@
 export const MAPILLARY_API_BASE = 'https://graph.mapillary.com';
 export const PANORAMAX_API_BASE = 'https://panoramax.openstreetmap.fr/api';
 
+export const DEFAULT_MAPILLARY_CLIENT_TOKEN =
+  'MLY|28770904692516138|c46ebeeaba88e0bcd9842b503fabc44d';
+
 /**
- * Resolves the active Mapillary access token from environment or localStorage.
+ * Resolves the active Mapillary access token from options, environment, or localStorage.
  *
  * @param {object} [options]
  * @returns {string|null}
  */
 export function resolveMapillaryToken(options = {}) {
-  if (options.token) return options.token;
+  if (options.token !== undefined) return options.token;
 
   if (typeof process !== 'undefined' && process.env?.MAPILLARY_CLIENT_TOKEN) {
     return process.env.MAPILLARY_CLIENT_TOKEN;
@@ -35,7 +38,7 @@ export function resolveMapillaryToken(options = {}) {
     }
   }
 
-  return null;
+  return DEFAULT_MAPILLARY_CLIENT_TOKEN;
 }
 
 /**
@@ -45,7 +48,7 @@ export function resolveMapillaryToken(options = {}) {
  * @param {number} longitude
  * @param {object} [options]
  * @param {string} [options.token]
- * @param {number} [options.radius=100] Search radius in meters
+ * @param {number} [options.radius=50] Search radius in meters (max 50 per API v4 spec)
  * @param {typeof fetch} [options.fetchImpl=fetch]
  * @returns {Promise<object|null>}
  */
@@ -54,7 +57,7 @@ export async function queryMapillaryImage(latitude, longitude, options = {}) {
   if (!token) return null;
 
   const fetchImpl = options.fetchImpl || globalThis.fetch;
-  const radius = Math.min(100, Math.max(10, options.radius || 100));
+  const radius = Math.min(50, Math.max(5, options.radius || 50));
   const url = `${MAPILLARY_API_BASE}/images?access_token=${encodeURIComponent(token)}&lat=${latitude}&lng=${longitude}&radius=${radius}&limit=1&fields=id,thumb_1024_url,thumb_2048_url,captured_at,compass_angle,is_pano,camera_type,computed_geometry`;
 
   try {

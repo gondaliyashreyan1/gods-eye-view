@@ -7,6 +7,7 @@ export function createBrowserViteConfig({
   publicDir,
   googleApiKey,
   cesiumToken,
+  mapillaryToken,
   host = 'localhost',
   port = 4173,
 } = {}) {
@@ -32,6 +33,7 @@ export function createBrowserViteConfig({
     define: {
       'import.meta.env.GOOGLE_MAPS_API_KEY': JSON.stringify(googleApiKey),
       'import.meta.env.CESIUM_ION_TOKEN': JSON.stringify(cesiumToken),
+      'import.meta.env.VITE_MAPILLARY_CLIENT_TOKEN': JSON.stringify(mapillaryToken),
     },
     build: { chunkSizeWarningLimit: 1500 },
   };

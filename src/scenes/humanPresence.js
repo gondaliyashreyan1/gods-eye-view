@@ -36,6 +36,31 @@ export function createHumanPresenceController(viewer, options = {}) {
   const scene = viewer.scene;
   const camera = viewer.camera || scene.camera;
 
+  // Ensure default orbital Earth rotation is active on initialization
+  const initialSscc = scene.screenSpaceCameraController;
+  if (initialSscc) {
+    initialSscc.enableInputs = true;
+    initialSscc.enableRotate = true;
+    initialSscc.enableTranslate = true;
+    initialSscc.enableTilt = true;
+    initialSscc.enableZoom = true;
+    if (Cesium?.CameraEventType?.LEFT_DRAG !== undefined) {
+      initialSscc.rotateEventTypes = Cesium.CameraEventType.LEFT_DRAG;
+      initialSscc.translateEventTypes = Cesium.CameraEventType.LEFT_DRAG;
+      initialSscc.zoomEventTypes = [
+        Cesium.CameraEventType.RIGHT_DRAG,
+        Cesium.CameraEventType.WHEEL,
+        Cesium.CameraEventType.PINCH,
+      ];
+      if (Cesium?.KeyboardEventModifier?.SHIFT !== undefined) {
+        initialSscc.lookEventTypes = {
+          eventType: Cesium.CameraEventType.LEFT_DRAG,
+          modifier: Cesium.KeyboardEventModifier.SHIFT,
+        };
+      }
+    }
+  }
+
   let isDroppedIn = false;
   let savedCameraState = null;
   let currentGroundElevation = 0;
@@ -165,6 +190,11 @@ export function createHumanPresenceController(viewer, options = {}) {
     if (target && target.matches && target.matches('input, textarea, select'))
       return;
     const code = e.code;
+    if (code === 'KeyG' || code === 'Escape') {
+      exit();
+      e.preventDefault?.();
+      return;
+    }
     if (code === 'KeyW' || code === 'ArrowUp') {
       keys.forward = true;
       e.preventDefault?.();
@@ -338,19 +368,13 @@ export function createHumanPresenceController(viewer, options = {}) {
       camera.frustum.fov = Cesium.Math.toRadians(HUMAN_EYE_FOV_DEG);
     }
 
-    // Configure screen space camera controller for first-person look
+    // Disable Cesium orbital camera controller while in first-person human presence
     const sscc = scene.screenSpaceCameraController;
     if (sscc) {
       sscc.enableRotate = false;
       sscc.enableTranslate = false;
       sscc.enableTilt = false;
-      if (Cesium?.CameraEventType?.LEFT_DRAG !== undefined) {
-        sscc.lookEventTypes = [
-          Cesium.CameraEventType.LEFT_DRAG,
-          Cesium.CameraEventType.RIGHT_DRAG,
-        ];
-        sscc.enableLook = true;
-      }
+      sscc.enableInputs = false;
     }
 
     // Attach mouse look listeners
@@ -434,9 +458,27 @@ export function createHumanPresenceController(viewer, options = {}) {
 
     const sscc = scene.screenSpaceCameraController;
     if (sscc) {
+      sscc.enableInputs = true;
       sscc.enableRotate = true;
       sscc.enableLook = true;
       sscc.enableTranslate = true;
+      sscc.enableTilt = true;
+      sscc.enableZoom = true;
+      if (Cesium?.CameraEventType?.LEFT_DRAG !== undefined) {
+        sscc.rotateEventTypes = Cesium.CameraEventType.LEFT_DRAG;
+        sscc.translateEventTypes = Cesium.CameraEventType.LEFT_DRAG;
+        sscc.zoomEventTypes = [
+          Cesium.CameraEventType.RIGHT_DRAG,
+          Cesium.CameraEventType.WHEEL,
+          Cesium.CameraEventType.PINCH,
+        ];
+        if (Cesium?.KeyboardEventModifier?.SHIFT !== undefined) {
+          sscc.lookEventTypes = {
+            eventType: Cesium.CameraEventType.LEFT_DRAG,
+            modifier: Cesium.KeyboardEventModifier.SHIFT,
+          };
+        }
+      }
     }
 
     return new Promise((resolve) => {
