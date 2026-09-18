@@ -1,5 +1,6 @@
 import * as DefaultCesium from 'cesium';
 import { evaluateCelestialVisibility } from './bortleScale.js';
+import { fetchNearestStreetView } from '../services/mapillaryService.js';
 
 const HUMAN_EYE_HEIGHT_M = 1.7;
 const HUMAN_EYE_FOV_DEG = 58.0;
@@ -46,6 +47,117 @@ export function createHumanPresenceController(viewer, options = {}) {
     right: false,
     sprint: false,
   };
+
+  let isDraggingMouse = false;
+  let lastMouseX = 0;
+  let lastMouseY = 0;
+  const LOOK_SENSITIVITY = 0.003;
+
+  let streetViewContainer = null;
+  let lastStreetViewPos = null;
+
+  async function updateStreetView(lat, lon) {
+    if (typeof document === 'undefined') return;
+    try {
+      const data = await fetchNearestStreetView(lat, lon, options);
+      if (!isDroppedIn) return;
+      if (!streetViewContainer) {
+        streetViewContainer = document.getElementById('streetview-hud');
+        if (!streetViewContainer) {
+          streetViewContainer = document.createElement('div');
+          streetViewContainer.id = 'streetview-hud';
+          streetViewContainer.className = 'streetview-hud';
+          document.body.appendChild(streetViewContainer);
+        }
+      }
+      if (data && (data.imageUrl || data.thumbnailUrl)) {
+        streetViewContainer.classList.remove('hidden');
+        const imgUrl = data.thumbnailUrl || data.imageUrl;
+        const year = data.capturedAt ? new Date(data.capturedAt).getFullYear() : '';
+        streetViewContainer.innerHTML = `
+          <div class="streetview-hud-header">
+            <div class="streetview-hud-title">
+              <span class="streetview-live-dot"></span>
+              <span class="streetview-source-badge">${data.source.toUpperCase()}</span>
+              <span class="streetview-heading-readout">${data.isPano ? '360°' : 'STREET'}</span>
+            </div>
+            <button class="streetview-close-btn" id="streetview-close-btn" title="Close street view">×</button>
+          </div>
+          <div class="streetview-img-container">
+            <img id="streetview-img" src="${imgUrl}" alt="Street View" crossorigin="anonymous" />
+            <div class="streetview-overlay-meta">
+              <span>${year ? 'Captured: ' + year : 'Live Street View'}</span>
+              ${data.externalUrl ? `<a href="${data.externalUrl}" target="_blank" rel="noopener">Open ↗</a>` : ''}
+            </div>
+          </div>
+        `;
+        const closeBtn = streetViewContainer.querySelector('#streetview-close-btn');
+        if (closeBtn) {
+          closeBtn.onclick = () => streetViewContainer.classList.add('hidden');
+        }
+      } else {
+        streetViewContainer.classList.add('hidden');
+      }
+    } catch {
+      // Graceful fallback if network is unreachable
+    }
+  }
+
+  function applyLookDelta(dx, dy) {
+    if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
+    if (dx === 0 && dy === 0) return;
+
+    if (camera.setView && Cesium?.Math) {
+      const currentHeading = camera.heading ?? 0;
+      const currentPitch = camera.pitch ?? 0;
+      const newHeading = currentHeading + dx * LOOK_SENSITIVITY;
+      const maxPitch = Cesium.Math.toRadians(85);
+      const minPitch = Cesium.Math.toRadians(-85);
+      const newPitch = Math.max(minPitch, Math.min(maxPitch, currentPitch - dy * LOOK_SENSITIVITY));
+
+      camera.setView({
+        orientation: {
+          heading: newHeading,
+          pitch: newPitch,
+          roll: 0.0,
+        },
+      });
+    } else {
+      if (dx > 0) camera.lookRight?.(dx * LOOK_SENSITIVITY);
+      if (dx < 0) camera.lookLeft?.(-dx * LOOK_SENSITIVITY);
+      if (dy > 0) camera.lookDown?.(dy * LOOK_SENSITIVITY);
+      if (dy < 0) camera.lookUp?.(-dy * LOOK_SENSITIVITY);
+    }
+  }
+
+  function onMouseDown(e) {
+    if (!isDroppedIn) return;
+    const canvas = viewer.canvas;
+    if (canvas && (e.target === canvas || canvas.contains(e.target))) {
+      isDraggingMouse = true;
+      lastMouseX = e.clientX;
+      lastMouseY = e.clientY;
+    }
+  }
+
+  function onMouseMove(e) {
+    if (!isDroppedIn) return;
+    const canvas = viewer.canvas;
+    if (typeof document !== 'undefined' && document.pointerLockElement === canvas) {
+      applyLookDelta(e.movementX || 0, e.movementY || 0);
+      return;
+    }
+    if (!isDraggingMouse) return;
+    const dx = e.clientX - lastMouseX;
+    const dy = e.clientY - lastMouseY;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+    applyLookDelta(dx, dy);
+  }
+
+  function onMouseUp() {
+    isDraggingMouse = false;
+  }
 
   function onKeyDown(e) {
     if (!isDroppedIn) return;
@@ -154,6 +266,21 @@ export function createHumanPresenceController(viewer, options = {}) {
         carto.latitude,
         carto.height,
       );
+
+      // Refresh street view photo if walked more than ~40m
+      if (isMoving && lastStreetViewPos) {
+        const dLat = Math.abs(carto.latitude - lastStreetViewPos.latitude);
+        const dLon = Math.abs(carto.longitude - lastStreetViewPos.longitude);
+        if (dLat > 0.00036 || dLon > 0.00036) {
+          lastStreetViewPos = {
+            latitude: carto.latitude,
+            longitude: carto.longitude,
+          };
+          const latDeg = (carto.latitude * 180) / Math.PI;
+          const lonDeg = (carto.longitude * 180) / Math.PI;
+          updateStreetView(latDeg, lonDeg);
+        }
+      }
     }
   }
 
@@ -215,9 +342,30 @@ export function createHumanPresenceController(viewer, options = {}) {
     const sscc = scene.screenSpaceCameraController;
     if (sscc) {
       sscc.enableRotate = false;
-      sscc.enableLook = true;
       sscc.enableTranslate = false;
+      sscc.enableTilt = false;
+      if (Cesium?.CameraEventType?.LEFT_DRAG !== undefined) {
+        sscc.lookEventTypes = [
+          Cesium.CameraEventType.LEFT_DRAG,
+          Cesium.CameraEventType.RIGHT_DRAG,
+        ];
+        sscc.enableLook = true;
+      }
     }
+
+    // Attach mouse look listeners
+    if (typeof window !== 'undefined') {
+      window.addEventListener('mousedown', onMouseDown);
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    }
+
+    // Fetch nearest street view photo (Mapillary / Panoramax)
+    lastStreetViewPos = {
+      latitude: (latitude * Math.PI) / 180,
+      longitude: (longitude * Math.PI) / 180,
+    };
+    updateStreetView(latitude, longitude);
 
     // Evaluate Bortle scale & celestial visibility:
     // In dark sky regions (Bortle 1-4, e.g. Big Bend, Death Valley), stars remain visible at night!
@@ -261,6 +409,16 @@ export function createHumanPresenceController(viewer, options = {}) {
 
     if (scene.preRender?.removeEventListener) {
       scene.preRender.removeEventListener(onWalkTick);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    }
+
+    if (streetViewContainer) {
+      streetViewContainer.classList.add('hidden');
     }
 
     // Reset keys
@@ -311,6 +469,9 @@ export function createHumanPresenceController(viewer, options = {}) {
     if (typeof window !== 'undefined') {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
     }
   }
 
@@ -328,6 +489,10 @@ export function createHumanPresenceController(viewer, options = {}) {
       if (code === 'KeyA') keys.left = down;
       if (code === 'KeyD') keys.right = down;
       if (code === 'Shift') keys.sprint = down;
+    },
+    // Test helper for simulating mouse drag look
+    _triggerMouseDragForTest(dx, dy) {
+      applyLookDelta(dx, dy);
     },
   };
 }

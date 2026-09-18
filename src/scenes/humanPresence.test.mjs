@@ -148,3 +148,54 @@ test('createHumanPresenceController preserves stars in Big Bend (Bortle 1) and h
   assert.equal(fakeScene.skyBox.show, false, 'Stars MUST be extinguished in Austin due to light pollution!');
 });
 
+test('createHumanPresenceController updates heading and pitch on mouse drag', async () => {
+  let viewSet = null;
+  const fakeCamera = {
+    position: { x: 100, y: 200, z: 300 },
+    positionCartographic: { longitude: -97.7431, latitude: 30.2672, height: 200 },
+    heading: 1.0,
+    pitch: -0.1,
+    roll: 0,
+    flyTo: (opts) => opts.complete?.(),
+    setView: (opts) => {
+      viewSet = opts;
+    },
+  };
+
+  const fakeScene = {
+    camera: fakeCamera,
+    skyBox: { show: true },
+    screenSpaceCameraController: {},
+    preRender: { addEventListener: () => {}, removeEventListener: () => {} },
+  };
+
+  const fakeViewer = {
+    isDestroyed: () => false,
+    scene: fakeScene,
+    camera: fakeCamera,
+  };
+
+  const fakeCesium = {
+    Cartesian3: {
+      fromDegrees: (lon, lat, h) => ({ lon, lat, h }),
+      fromRadians: (lon, lat, h) => ({ lon, lat, h }),
+    },
+    Cartographic: { fromDegrees: (lon, lat) => ({ lon, lat }) },
+    Math: {
+      toRadians: (d) => (d * Math.PI) / 180,
+    },
+  };
+
+  const controller = createHumanPresenceController(fakeViewer, { Cesium: fakeCesium });
+  await controller.dropIn(30.2672, -97.7431);
+
+  // Simulate mouse drag: dx = 50px right, dy = -30px up
+  controller._triggerMouseDragForTest(50, -30);
+
+  assert.ok(viewSet !== null, 'setView must be invoked on mouse drag');
+  assert.ok(viewSet.orientation.heading > 1.0, 'Heading must increase when looking right');
+  assert.ok(viewSet.orientation.pitch > -0.1, 'Pitch must increase when looking up');
+  assert.equal(viewSet.orientation.roll, 0.0, 'Roll must remain 0 to keep horizon level');
+});
+
+
