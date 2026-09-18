@@ -11,6 +11,7 @@ import {
   governorRequestRender,
 } from '../renderGovernor.js';
 import { installFramePacingGovernor } from './framePacing.js';
+import { installCinematicPipeline } from '../scenes/cinematicPipeline.js';
 import { describeError } from './errors.js';
 
 /** Construct the application globe using the caller's local configuration. */
@@ -50,7 +51,9 @@ export async function createApplicationScene({
     creditContainer,
   });
   const uninstallFramePacing = installFramePacingGovernor(viewer);
+  const uninstallCinematic = installCinematicPipeline(viewer);
   defer(() => {
+    uninstallCinematic();
     uninstallFramePacing();
     uninstallRenderGovernor(viewer);
     if (!viewer.isDestroyed()) viewer.destroy();
