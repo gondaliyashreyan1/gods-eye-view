@@ -105,12 +105,12 @@ export function createHumanPresenceController(viewer, options = {}) {
       const up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(posWC, scratchUp);
       const right = camera.right || new Cesium.Cartesian3(1, 0, 0);
 
-      // Forward direction tangent to Earth surface (perpendicular to right and up)
-      const forwardGround = Cesium.Cartesian3.cross(right, up, new Cesium.Cartesian3());
+      // Forward direction tangent to Earth surface (up cross right)
+      const forwardGround = Cesium.Cartesian3.cross(up, right, new Cesium.Cartesian3());
       Cesium.Cartesian3.normalize(forwardGround, forwardGround);
 
-      // Right strafe direction tangent to Earth surface
-      const rightGround = Cesium.Cartesian3.cross(up, forwardGround, new Cesium.Cartesian3());
+      // Right strafe direction tangent to Earth surface (forward cross up)
+      const rightGround = Cesium.Cartesian3.cross(forwardGround, up, new Cesium.Cartesian3());
       Cesium.Cartesian3.normalize(rightGround, rightGround);
 
       const moveDir = new Cesium.Cartesian3(0, 0, 0);
