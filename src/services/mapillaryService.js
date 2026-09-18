@@ -61,30 +61,18 @@ export async function queryMapillaryImage(latitude, longitude, options = {}) {
   const url = `${MAPILLARY_API_BASE}/images?access_token=${encodeURIComponent(token)}&lat=${latitude}&lng=${longitude}&radius=${radius}&limit=1&fields=id,thumb_1024_url,thumb_2048_url,captured_at,compass_angle,is_pano,camera_type,computed_geometry`;
 
   try {
-    let res = await fetchImpl(url);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+    const res = await fetchImpl(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
     if (!res.ok) {
       console.warn(`[Mapillary] API response status ${res.status}`);
       return null;
     }
-    let data = await res.json();
-    let item = data?.data?.[0];
-
-    // Fallback: If no street photo within 50m radius, search ~250m bounding box
-    if (!item) {
-      const delta = 0.0025;
-      const bbox = `${longitude - delta},${latitude - delta},${longitude + delta},${latitude + delta}`;
-      const bboxUrl = `${MAPILLARY_API_BASE}/images?access_token=${encodeURIComponent(token)}&bbox=${bbox}&limit=1&fields=id,thumb_1024_url,thumb_2048_url,captured_at,compass_angle,is_pano,camera_type,computed_geometry`;
-      try {
-        const bboxRes = await fetchImpl(bboxUrl);
-        if (bboxRes.ok) {
-          const bboxData = await bboxRes.json();
-          item = bboxData?.data?.[0];
-        }
-      } catch {
-        // Bbox fallback network error
-      }
-    }
-
+    const data = await res.json();
+    const item = data?.data?.[0];
     if (!item) return null;
 
     const coords = item.computed_geometry?.coordinates || [longitude, latitude];
@@ -101,7 +89,6 @@ export async function queryMapillaryImage(latitude, longitude, options = {}) {
       externalUrl: `https://www.mapillary.com/app/?pKey=${item.id}`,
     };
   } catch (err) {
-    console.warn('[Mapillary] Request failed:', err);
     return null;
   }
 }
@@ -164,17 +151,11 @@ export async function fetchNearestStreetView(latitude, longitude, options = {}) 
     throw new TypeError('Valid latitude and longitude required');
   }
 
-  // 1. Try Mapillary
-  const mapillaryResult = await queryMapillaryImage(latitude, longitude, options);
-  if (mapillaryResult) {
-    return mapillaryResult;
-  }
+  // Query Mapillary and Panoramax concurrently for sub-second response
+  const [mapillaryResult, panoramaxResult] = await Promise.all([
+    queryMapillaryImage(latitude, longitude, options),
+    queryPanoramaxImage(latitude, longitude, options),
+  ]);
 
-  // 2. Try Panoramax (open access fallback)
-  const panoramaxResult = await queryPanoramaxImage(latitude, longitude, options);
-  if (panoramaxResult) {
-    return panoramaxResult;
-  }
-
-  return null;
+  return mapillaryResult || panoramaxResult || null;
 }
