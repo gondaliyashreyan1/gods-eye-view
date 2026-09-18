@@ -146,32 +146,27 @@ export function createHumanPresenceController(viewer, options = {}) {
           closeBtn.onclick = () => streetViewContainer.classList.add('hidden');
         }
       } else {
+        const googleUrl = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat.toFixed(5)},${lon.toFixed(5)}`;
         streetViewContainer.innerHTML = `
           <div class="streetview-hud-header">
             <div class="streetview-hud-title">
-              <span class="streetview-live-dot" style="background:#ff9900;box-shadow:0 0 6px #ff9900;"></span>
-              <span class="streetview-source-badge">STREET VIEW</span>
-              <span class="streetview-heading-readout">OFF-GRID</span>
+              <span class="streetview-live-dot" style="background:#4285F4;box-shadow:0 0 6px #4285F4;"></span>
+              <span class="streetview-source-badge" style="background:rgba(66,133,244,0.2);color:#4285F4;border-color:rgba(66,133,244,0.4);">GOOGLE 360°</span>
+              <span class="streetview-heading-readout">GLOBAL</span>
             </div>
             <button class="streetview-close-btn" id="streetview-close-btn" title="Close street view">×</button>
           </div>
-          <div class="streetview-img-container" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;text-align:center;color:#8899a6;font-size:11px;gap:8px;height:180px;background:#0b0f19;">
-            <span style="color:#fff;font-weight:600;">No Street Photography Here</span>
-            <span>(${lat.toFixed(4)}°, ${lon.toFixed(4)}°)</span>
-            <button id="streetview-jump-btn" style="background:rgba(0,212,255,0.15);border:1px solid rgba(0,212,255,0.4);color:#00d4ff;padding:5px 12px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:10px;font-weight:600;margin-top:2px;">
-              📍 Jump to Austin 360° View
-            </button>
+          <div class="streetview-img-container">
+            <iframe class="streetview-iframe" src="${googleUrl}" allowfullscreen loading="lazy"></iframe>
+            <div class="streetview-overlay-meta">
+              <span>Google Street View (${lat.toFixed(4)}°, ${lon.toFixed(4)}°)</span>
+              <a href="${googleUrl}" target="_blank" rel="noopener">Open ↗</a>
+            </div>
           </div>
         `;
         const closeBtn = streetViewContainer.querySelector('#streetview-close-btn');
         if (closeBtn) {
           closeBtn.onclick = () => streetViewContainer.classList.add('hidden');
-        }
-        const jumpBtn = streetViewContainer.querySelector('#streetview-jump-btn');
-        if (jumpBtn) {
-          jumpBtn.onclick = () => {
-            dropIn(30.2672, -97.7431, { surfaceHeightM: 155 });
-          };
         }
       }
     } catch {

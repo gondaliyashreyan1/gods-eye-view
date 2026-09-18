@@ -9,7 +9,7 @@
  * startup, renderer load success/failure, and renderer console errors.
  */
 
-const { app, BrowserWindow, Menu, shell, nativeTheme } = require('electron');
+const { app, BrowserWindow, Menu, shell, nativeTheme, session } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const http = require('http');
@@ -146,11 +146,11 @@ function createWindow() {
     // Native title bar: draggable like any normal macOS app. (hiddenInset
     // looked sleek but made the window undraggable — the HUD has no drag
     // regions.) Force dark so the titlebar matches the black UI.
-    backgroundColor: '#000000',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true,
+      sandbox: false,
+      webviewTag: true,
       spellcheck: false,
       backgroundThrottling: false, // keep Cesium ticking when occluded
     },
@@ -284,6 +284,23 @@ app.commandLine.appendSwitch('media-cache-size', '268435456'); // 256 MB max
 app.whenReady().then(async () => {
   nativeTheme.themeSource = 'dark'; // dark titlebar/menu to match the app
   buildMenu();
+
+  // Strip X-Frame-Options and frame-ancestors to permit rich street view embeds
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const responseHeaders = Object.assign({}, details.responseHeaders);
+    for (const key of Object.keys(responseHeaders)) {
+      const lower = key.toLowerCase();
+      if (lower === 'x-frame-options') {
+        delete responseHeaders[key];
+      }
+      if (lower === 'content-security-policy') {
+        responseHeaders[key] = responseHeaders[key].map((h) =>
+          h.replace(/frame-ancestors[^;]+;?/gi, ''),
+        );
+      }
+    }
+    callback({ cancel: false, responseHeaders });
+  });
 
   try {
     await ensureServerRunning();
