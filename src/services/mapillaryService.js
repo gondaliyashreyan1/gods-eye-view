@@ -61,13 +61,30 @@ export async function queryMapillaryImage(latitude, longitude, options = {}) {
   const url = `${MAPILLARY_API_BASE}/images?access_token=${encodeURIComponent(token)}&lat=${latitude}&lng=${longitude}&radius=${radius}&limit=1&fields=id,thumb_1024_url,thumb_2048_url,captured_at,compass_angle,is_pano,camera_type,computed_geometry`;
 
   try {
-    const res = await fetchImpl(url);
+    let res = await fetchImpl(url);
     if (!res.ok) {
       console.warn(`[Mapillary] API response status ${res.status}`);
       return null;
     }
-    const data = await res.json();
-    const item = data?.data?.[0];
+    let data = await res.json();
+    let item = data?.data?.[0];
+
+    // Fallback: If no street photo within 50m radius, search ~250m bounding box
+    if (!item) {
+      const delta = 0.0025;
+      const bbox = `${longitude - delta},${latitude - delta},${longitude + delta},${latitude + delta}`;
+      const bboxUrl = `${MAPILLARY_API_BASE}/images?access_token=${encodeURIComponent(token)}&bbox=${bbox}&limit=1&fields=id,thumb_1024_url,thumb_2048_url,captured_at,compass_angle,is_pano,camera_type,computed_geometry`;
+      try {
+        const bboxRes = await fetchImpl(bboxUrl);
+        if (bboxRes.ok) {
+          const bboxData = await bboxRes.json();
+          item = bboxData?.data?.[0];
+        }
+      } catch {
+        // Bbox fallback network error
+      }
+    }
+
     if (!item) return null;
 
     const coords = item.computed_geometry?.coordinates || [longitude, latitude];

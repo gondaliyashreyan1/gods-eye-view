@@ -83,18 +83,38 @@ export function createHumanPresenceController(viewer, options = {}) {
 
   async function updateStreetView(lat, lon) {
     if (typeof document === 'undefined') return;
+    if (!streetViewContainer) {
+      streetViewContainer = document.getElementById('streetview-hud');
+      if (!streetViewContainer) {
+        streetViewContainer = document.createElement('div');
+        streetViewContainer.id = 'streetview-hud';
+        streetViewContainer.className = 'streetview-hud';
+        document.body.appendChild(streetViewContainer);
+      }
+    }
+    streetViewContainer.classList.remove('hidden');
+    streetViewContainer.innerHTML = `
+      <div class="streetview-hud-header">
+        <div class="streetview-hud-title">
+          <span class="streetview-live-dot" style="background:#ffaa00;box-shadow:0 0 8px #ffaa00;"></span>
+          <span class="streetview-source-badge">MAPILLARY</span>
+          <span class="streetview-heading-readout">SEARCHING</span>
+        </div>
+        <button class="streetview-close-btn" id="streetview-close-btn" title="Close street view">×</button>
+      </div>
+      <div class="streetview-img-container" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:180px;background:#0b0f19;color:#8899a6;font-size:11px;gap:6px;">
+        <span style="color:#00d4ff;font-weight:600;">Connecting Street Imagery...</span>
+        <span>${lat.toFixed(4)}°, ${lon.toFixed(4)}°</span>
+      </div>
+    `;
+    const closeBtnInit = streetViewContainer.querySelector('#streetview-close-btn');
+    if (closeBtnInit) {
+      closeBtnInit.onclick = () => streetViewContainer.classList.add('hidden');
+    }
+
     try {
       const data = await fetchNearestStreetView(lat, lon, options);
       if (!isDroppedIn) return;
-      if (!streetViewContainer) {
-        streetViewContainer = document.getElementById('streetview-hud');
-        if (!streetViewContainer) {
-          streetViewContainer = document.createElement('div');
-          streetViewContainer.id = 'streetview-hud';
-          streetViewContainer.className = 'streetview-hud';
-          document.body.appendChild(streetViewContainer);
-        }
-      }
       if (data && (data.imageUrl || data.thumbnailUrl)) {
         streetViewContainer.classList.remove('hidden');
         const imgUrl = data.thumbnailUrl || data.imageUrl;
@@ -121,7 +141,33 @@ export function createHumanPresenceController(viewer, options = {}) {
           closeBtn.onclick = () => streetViewContainer.classList.add('hidden');
         }
       } else {
-        streetViewContainer.classList.add('hidden');
+        streetViewContainer.innerHTML = `
+          <div class="streetview-hud-header">
+            <div class="streetview-hud-title">
+              <span class="streetview-live-dot" style="background:#ff9900;box-shadow:0 0 6px #ff9900;"></span>
+              <span class="streetview-source-badge">STREET VIEW</span>
+              <span class="streetview-heading-readout">OFF-GRID</span>
+            </div>
+            <button class="streetview-close-btn" id="streetview-close-btn" title="Close street view">×</button>
+          </div>
+          <div class="streetview-img-container" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;text-align:center;color:#8899a6;font-size:11px;gap:8px;height:180px;background:#0b0f19;">
+            <span style="color:#fff;font-weight:600;">No Street Photography Here</span>
+            <span>(${lat.toFixed(4)}°, ${lon.toFixed(4)}°)</span>
+            <button id="streetview-jump-btn" style="background:rgba(0,212,255,0.15);border:1px solid rgba(0,212,255,0.4);color:#00d4ff;padding:5px 12px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:10px;font-weight:600;margin-top:2px;">
+              📍 Jump to Austin 360° View
+            </button>
+          </div>
+        `;
+        const closeBtn = streetViewContainer.querySelector('#streetview-close-btn');
+        if (closeBtn) {
+          closeBtn.onclick = () => streetViewContainer.classList.add('hidden');
+        }
+        const jumpBtn = streetViewContainer.querySelector('#streetview-jump-btn');
+        if (jumpBtn) {
+          jumpBtn.onclick = () => {
+            dropIn(30.2672, -97.7431, { surfaceHeightM: 155 });
+          };
+        }
       }
     } catch {
       // Graceful fallback if network is unreachable
