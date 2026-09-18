@@ -55,7 +55,7 @@ export const CATALOG_GROUPS = [
 // points-only extras — no labels, no detection-overlay participation, and a
 // relaxed propagation budget (round-robin, ~1/5 of core cadence per sat).
 
-export const DENSE_GROUP_PATH = 'starlink';
+export const DENSE_GROUP_PATH = 'active';
 
 export const DENSE_REFRESH_FRAMES = 300;
 // full dense pass spread over ~300 frames (~5s @ 60fps)

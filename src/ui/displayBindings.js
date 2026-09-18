@@ -1,7 +1,9 @@
+import * as Cesium from 'cesium';
 import { createFrameRateMonitor } from './frameRateMonitor.js';
 import { bindApplicationShortcuts } from './visualInput.js';
 import { bindDisplayControls } from './displayControls.js';
 import { canonicalizeDensity } from '../data/detectionPolicy.js';
+import { createHumanPresenceController } from '../scenes/humanPresence.js';
 
 /** Own keyboard/display event subscriptions; settings remain with their state owners. */
 export class DisplayBindings {
@@ -89,6 +91,7 @@ export class DisplayBindings {
           this._syncShareState();
         },
         toggleCctv: () => this._toggleCctvEnabled(),
+        toggleDropIn: () => this._toggleDropIn(),
       },
     });
 
@@ -205,7 +208,36 @@ export class DisplayBindings {
       },
     });
   }
+  _toggleDropIn(targetLat, targetLon) {
+    if (!this._humanPresence && this.viewer) {
+      this._humanPresence = createHumanPresenceController(this.viewer);
+    }
+    if (this._humanPresence?.isDroppedIn) {
+      this._humanPresence.exit();
+      return;
+    }
+    if (Number.isFinite(targetLat) && Number.isFinite(targetLon)) {
+      this._humanPresence?.dropIn(targetLat, targetLon);
+      return;
+    }
+    const canvas = this.viewer?.canvas;
+    if (!canvas || !this.viewer?.scene?.globe) return;
+    const center = new Cesium.Cartesian2(
+      canvas.clientWidth / 2,
+      canvas.clientHeight / 2,
+    );
+    const ray = this.viewer.camera.getPickRay(center);
+    if (!ray) return;
+    const cartesian = this.viewer.scene.globe.pick(ray, this.viewer.scene);
+    if (!cartesian) return;
+    const carto = Cesium.Cartographic.fromCartesian(cartesian);
+    const lat = Cesium.Math.toDegrees(carto.latitude);
+    const lon = Cesium.Math.toDegrees(carto.longitude);
+    this._humanPresence?.dropIn(lat, lon);
+  }
   destroy() {
+    this._humanPresence?.exit();
+    this._humanPresence = null;
     this._applicationShortcuts?.destroy();
     this._applicationShortcuts = null;
     this._frameRateMonitor?.destroy();
