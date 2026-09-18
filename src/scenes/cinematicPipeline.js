@@ -58,8 +58,25 @@ export function installCinematicPipeline(viewer, options = {}) {
     }
   }
 
+  // 5. Atmospheric and urban light pollution star extinction (< 10km)
+  function onPreRender() {
+    if (!scene.skyBox) return;
+    const carto = scene.camera?.positionCartographic;
+    const altitude = carto ? carto.height : 100000;
+    scene.skyBox.show = altitude > 10000;
+  }
+  if (scene.preRender?.addEventListener) {
+    scene.preRender.addEventListener(onPreRender);
+  }
+
   return function uninstall() {
     if (!viewer.isDestroyed() && viewer.scene) {
+      if (viewer.scene.preRender?.removeEventListener) {
+        viewer.scene.preRender.removeEventListener(onPreRender);
+      }
+      if (viewer.scene.skyBox) {
+        viewer.scene.skyBox.show = true;
+      }
       if (acesStage && viewer.scene.postProcessStages) {
         try {
           viewer.scene.postProcessStages.remove(acesStage);

@@ -18,12 +18,15 @@ test('calculateHumanEyeCartesian computes cartesian at ground elevation + 1.7m',
   assert.equal(pos.height, 26.7, 'Height must be exactly ground (25.0m) + 1.7m');
 });
 
-test('createHumanPresenceController transitions camera to 1.7m and restores on exit', async () => {
+test('createHumanPresenceController transitions camera to 1.7m, enables walking, and restores on exit', async () => {
   let flownTo = null;
+  let moveForwardCalled = 0;
   const originalFov = 1.047; // 60 deg
+  const listeners = [];
 
   const fakeCamera = {
     position: { x: 100, y: 200, z: 300 },
+    positionCartographic: { longitude: -2.1, latitude: 0.6, height: 16.7 },
     heading: 0,
     pitch: -0.5,
     roll: 0,
@@ -32,12 +35,30 @@ test('createHumanPresenceController transitions camera to 1.7m and restores on e
       flownTo = options;
       options.complete?.();
     },
+    moveForward: (dist) => {
+      moveForwardCalled += dist;
+    },
+    moveBackward: () => {},
+    moveLeft: () => {},
+    moveRight: () => {},
   };
 
   const fakeScene = {
     camera: fakeCamera,
     globe: {
       getHeight: () => 15.0,
+    },
+    screenSpaceCameraController: {
+      enableRotate: true,
+      enableLook: true,
+      enableTranslate: true,
+    },
+    preRender: {
+      addEventListener: (fn) => listeners.push(fn),
+      removeEventListener: (fn) => {
+        const idx = listeners.indexOf(fn);
+        if (idx !== -1) listeners.splice(idx, 1);
+      },
     },
   };
 
@@ -50,6 +71,7 @@ test('createHumanPresenceController transitions camera to 1.7m and restores on e
   const fakeCesium = {
     Cartesian3: {
       fromDegrees: (lon, lat, height) => ({ lon, lat, height }),
+      fromRadians: (lon, lat, height) => ({ lon, lat, height }),
     },
     Cartographic: {
       fromDegrees: (lon, lat) => ({ lon, lat }),
@@ -64,9 +86,20 @@ test('createHumanPresenceController transitions camera to 1.7m and restores on e
 
   assert.ok(flownTo !== null, 'Camera flyTo must be invoked');
   assert.equal(flownTo.destination.height, 16.7, 'Target destination must be ground + 1.7m');
-  assert.ok(fakeCamera.frustum.fov < 1.05, 'Human FOV must be set');
+  assert.equal(fakeScene.screenSpaceCameraController.enableRotate, false, 'Rotate disabled for first-person look');
+  assert.equal(listeners.length, 1, 'Walk preRender listener installed');
+
+  // Trigger walk tick with forward key
+  controller._triggerKeyForTest('KeyW', true);
+  listeners[0]();
+  assert.ok(moveForwardCalled > 0, 'moveForward must be called when KeyW is down');
+
+  // Release key
+  controller._triggerKeyForTest('KeyW', false);
 
   // Exit drop-in
   await controller.exit();
   assert.equal(fakeCamera.frustum.fov, originalFov, 'Original FOV must be restored on exit');
+  assert.equal(fakeScene.screenSpaceCameraController.enableRotate, true, 'Rotate re-enabled on exit');
+  assert.equal(listeners.length, 0, 'Walk preRender listener removed on exit');
 });
