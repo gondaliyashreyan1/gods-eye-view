@@ -140,7 +140,8 @@ export function adsbLolProxy() {
             : {},
         );
       } catch (e) {
-        console.error('[adsb.lol Proxy]', e.message);
+        _cooldownUntil = Date.now() + 60000; // Back off 60s when network blocks the endpoint
+        console.warn('[adsb.lol Proxy] Network unreachable or blocked, cooling down 60s');
         if (_cache) {
           serve(res, 200, _cache, 'STALE');
           return;
