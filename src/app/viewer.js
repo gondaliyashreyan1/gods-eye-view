@@ -22,7 +22,8 @@ export function createApplicationViewer({ container, creditContainer }) {
     contextOptions: { webgl: { preserveDrawingBuffer: true } },
   });
   try {
-    viewer.targetFrameRate = 60;
+    // Uncapped targetFrameRate enables display hardware VSync (e.g. 60Hz or 120Hz ProMotion)
+    viewer.targetFrameRate = undefined;
     viewer.scene.globe.show = false;
     viewer.scene.skyAtmosphere.show = true;
     viewer.scene.skyAtmosphere.atmosphereLightIntensity = 18;

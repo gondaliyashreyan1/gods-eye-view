@@ -10,6 +10,7 @@ import {
   uninstallRenderGovernor,
   governorRequestRender,
 } from '../renderGovernor.js';
+import { installFramePacingGovernor } from './framePacing.js';
 import { describeError } from './errors.js';
 
 /** Construct the application globe using the caller's local configuration. */
@@ -48,7 +49,9 @@ export async function createApplicationScene({
     container: 'cesiumContainer',
     creditContainer,
   });
+  const uninstallFramePacing = installFramePacingGovernor(viewer);
   defer(() => {
+    uninstallFramePacing();
     uninstallRenderGovernor(viewer);
     if (!viewer.isDestroyed()) viewer.destroy();
   });

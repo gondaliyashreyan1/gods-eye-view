@@ -31,7 +31,9 @@
     "openai-realtime",
     "visualization"
   ],
+  "main": "electron/main.cjs",
   "scripts": {
+    "electron": "electron .",
     "doctor": "node scripts/setup-doctor.mjs",
     "format": "node scripts/format.mjs --write",
     "format:check": "node scripts/format.mjs --check",

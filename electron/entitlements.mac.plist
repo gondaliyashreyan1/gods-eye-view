@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Hardened runtime requirements -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+  <true/>
+
+  <!-- Network access (API proxies, WebSocket for AIS live, voice control) -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+  <key>com.apple.security.network.server</key>
+  <true/>
+
+  <!-- Camera (CCTV camera feeds, potential future AR features) -->
+  <key>com.apple.security.device.camera</key>
+  <true/>
+
+  <!-- Microphone (voice control via OpenAI Realtime) -->
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
+
+  <!-- Location (optional, for "no place left behind" features) -->
+  <key>com.apple.security.personal-information.location</key>
+  <true/>
+
+  <!-- Files (reading .env, writing cache to .gev-cache) -->
+  <key>com.apple.security.files.user-selected.read-write</key>
+  <true/>
+  <key>com.apple.security.files.downloads.read-write</key>
+  <true/>
+</dict>
+</plist>
